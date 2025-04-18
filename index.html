@@ -118,6 +118,12 @@
             font-size: 16px;
         }
         
+        input:disabled, select:disabled, textarea:disabled {
+            background-color: #f0f0f0;
+            color: #666;
+            cursor: not-allowed;
+        }
+        
         input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: var(--secondary-color);
@@ -162,6 +168,15 @@
             text-align: center;
             margin-top: 10px;
             font-size: 14px;
+        }
+        
+        .gestor-notice {
+            background-color: #fff9e6;
+            padding: 10px;
+            border-left: 4px solid #ffcc00;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #666;
         }
         
         /* Estilos específicos para o formulário de cadastro */
@@ -560,9 +575,13 @@
             <div class="form-section">
                 <h2>Dados Profissionais</h2>
                 
+                <div class="gestor-notice">
+                    Os campos bloqueados serão preenchidos pelo gestor após análise do cadastro.
+                </div>
+                
                 <div class="form-group">
-                    <label for="servicoPrestado" class="required">Serviço Prestado</label>
-                    <input type="text" id="servicoPrestado" name="servicoPrestado" required>
+                    <label for="servicoPrestado">Serviço Prestado</label>
+                    <input type="text" id="servicoPrestado" name="servicoPrestado" disabled placeholder="Preenchido pelo gestor">
                 </div>
                 
                 <div class="form-row">
@@ -571,14 +590,14 @@
                         <input type="text" id="cnpj" name="cnpj" placeholder="00.000.000/0000-00" required>
                     </div>
                     <div class="form-group">
-                        <label for="dataInicioServico" class="required">Data de Início da Prestação de Serviço</label>
-                        <input type="date" id="dataInicioServico" name="dataInicioServico" required>
+                        <label for="dataInicioServico">Data de Início da Prestação de Serviço</label>
+                        <input type="date" id="dataInicioServico" name="dataInicioServico" disabled placeholder="Preenchido pelo gestor">
                     </div>
                 </div>
                 
                 <div class="form-group">
-                    <label for="valorRemuneracao" class="required">Valor da Remuneração Mensal</label>
-                    <input type="text" id="valorRemuneracao" name="valorRemuneracao" required>
+                    <label for="valorRemuneracao">Valor da Remuneração Mensal</label>
+                    <input type="text" id="valorRemuneracao" name="valorRemuneracao" disabled placeholder="Preenchido pelo gestor">
                 </div>
             </div>
             
@@ -646,6 +665,7 @@
         // Constantes
         const SENHA_CORRETA = "Maria.191290";
         const LOCAL_STORAGE_KEY = "cadastrosPJ";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymGV3qWTpJ6EN9KwruqpMT8LqI34J5MtJPiQP67vWag99RhrkeR-FpQ9526enod1jQtw/exec";
         
         // Elementos do DOM
         const cadastroContainer = document.getElementById('cadastroContainer');
@@ -692,6 +712,11 @@
         document.getElementById('telefoneEmergencia').addEventListener('input', maskTelefone);
         document.getElementById('cep').addEventListener('input', maskCEP);
         
+        // Desabilitar campos que serão preenchidos pelo gestor
+        document.getElementById('servicoPrestado').disabled = true;
+        document.getElementById('dataInicioServico').disabled = true;
+        document.getElementById('valorRemuneracao').disabled = true;
+
         // Mostrar tela de cadastro por padrão
         showCadastroScreen();
 
@@ -759,6 +784,9 @@
             // Salvar no localStorage
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cadastros));
             
+            // Enviar para o Google Sheets
+            enviarParaGoogleSheets(cadastro);
+            
             // Mostrar mensagem de sucesso
             successMessage.textContent = 'Cadastro enviado com sucesso!';
             
@@ -769,6 +797,69 @@
             
             // Rolar para o topo para ver a mensagem
             window.scrollTo(0, 0);
+        }
+        
+        function enviarParaGoogleSheets(cadastro) {
+            // Preparar os dados para envio
+            const dadosParaEnvio = {
+                nomeCompleto: cadastro.nomeCompleto || '',
+                dataNascimento: formatarDataParaPlanilha(cadastro.dataNascimento),
+                genero: cadastro.genero || '',
+                estadoCivil: cadastro.estadoCivil || '',
+                racaEtnia: cadastro.racaEtnia || '',
+                nacionalidade: cadastro.nacionalidade || '',
+                naturalidade: cadastro.naturalidade || '',
+                nomeMae: cadastro.nomeMae || '',
+                nomePai: cadastro.nomePai || '',
+                cpf: cadastro.cpf || '',
+                rg: cadastro.rg || '',
+                dataEmissaoRG: formatarDataParaPlanilha(cadastro.dataEmissaoRG),
+                orgaoExpedidorRG: cadastro.orgaoExpedidorRG || '',
+                cnh: cadastro.cnh || '',
+                tituloEleitor: cadastro.tituloEleitor ? cadastro.tituloEleitor.numero : '',
+                zonaTitulo: cadastro.tituloEleitor ? cadastro.tituloEleitor.zona : '',
+                secaoTitulo: cadastro.tituloEleitor ? cadastro.tituloEleitor.secao : '',
+                reservista: cadastro.reservista || '',
+                endereco: cadastro.endereco || '',
+                bairro: cadastro.bairro || '',
+                cidade: cadastro.cidade || '',
+                cep: cadastro.cep || '',
+                estado: cadastro.estado || '',
+                telefoneCelular: cadastro.telefoneCelular || '',
+                telefoneEmergencia: cadastro.telefoneEmergencia || '',
+                nomeContatoEmergencia: cadastro.nomeContatoEmergencia || '',
+                emailPessoal: cadastro.emailPessoal || '',
+                emailEmpresarial: cadastro.emailEmpresarial || '',
+                servicoPrestado: 'A ser preenchido pelo gestor',
+                cnpj: cadastro.cnpj || '',
+                dataInicioServico: 'A ser preenchido pelo gestor',
+                valorRemuneracao: 'A ser preenchido pelo gestor',
+                possuiDependentes: cadastro.possuiDependentes || 'Não',
+                dependentes: cadastro.dependentes ? JSON.stringify(cadastro.dependentes) : '[]',
+                dataCadastro: new Date().toLocaleString('pt-BR')
+            };
+            
+            // Enviar dados para o Google Apps Script
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(dadosParaEnvio)
+            })
+            .then(() => {
+                console.log('Dados enviados para o Google Sheets com sucesso');
+            })
+            .catch(error => {
+                console.error('Erro ao enviar para o Google Sheets:', error);
+            });
+        }
+        
+        function formatarDataParaPlanilha(dataString) {
+            if (!dataString) return '';
+            const date = new Date(dataString);
+            return isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
         }
         
         function showLoginView() {
@@ -999,7 +1090,7 @@
                             <div class="info-grid">
                                 <div class="info-item">
                                     <strong>Serviço Prestado:</strong>
-                                    <span>${cadastro.servicoPrestado || 'Não informado'}</span>
+                                    <span>${cadastro.servicoPrestado || 'A ser preenchido pelo gestor'}</span>
                                 </div>
                                 <div class="info-item">
                                     <strong>CNPJ:</strong>
@@ -1007,11 +1098,11 @@
                                 </div>
                                 <div class="info-item">
                                     <strong>Data Início Serviço:</strong>
-                                    <span>${formatarData(cadastro.dataInicioServico)}</span>
+                                    <span>${cadastro.dataInicioServico ? formatarData(cadastro.dataInicioServico) : 'A ser preenchido pelo gestor'}</span>
                                 </div>
                                 <div class="info-item">
                                     <strong>Remuneração Mensal:</strong>
-                                    <span>${cadastro.valorRemuneracao ? 'R$ ' + parseFloat(cadastro.valorRemuneracao).toFixed(2).replace('.', ',') : 'Não informado'}</span>
+                                    <span>${cadastro.valorRemuneracao ? 'R$ ' + parseFloat(cadastro.valorRemuneracao).toFixed(2).replace('.', ',') : 'A ser preenchido pelo gestor'}</span>
                                 </div>
                             </div>
                         </div>
