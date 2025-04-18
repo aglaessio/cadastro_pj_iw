@@ -682,8 +682,13 @@
         viewCadastrosBtn.addEventListener('click', showLoginView);
         newCadastroBtn.addEventListener('click', showCadastroScreen);
         viewLogoutBtn.addEventListener('click', handleLogout);
-        searchBtn.addEventListener('click', () => {loadCadastros();});
-        searchInput.addEventListener('keypress', function(e) {if (e.key === 'Enter') loadCadastros();});
+        searchBtn.addEventListener('click', () => {
+    loadCadastros();
+});
+
+searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') loadCadastros();
+});
         adicionarDependente.addEventListener('click', adicionarDependenteForm);
         possuiDependentes.addEventListener('change', toggleDependentesContainer);
         genero.addEventListener('change', toggleReservistaContainer);
@@ -920,84 +925,215 @@
             document.getElementById(`dependente-${id}`).remove();
         };
         
-        async function loadCadastros() {
-    try {
-        // Carrega dados do localStorage
-        const dadosLocais = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || [];
-        
-        // Carrega dados do Google Sheets
-        const dadosRemotos = await carregarDadosDoGoogleSheets();
-        
-        // Combina ambos os conjuntos de dados (removendo duplicatas por CPF)
-        const todosCadastros = [...dadosLocais, ...dadosRemotos];
-        const cadastrosUnicos = eliminarDuplicatasPorCPF(todosCadastros);
-        
-        // Atualiza a variável global
-        cadastros = cadastrosUnicos;
-        
-        // Filtra se houver termo de pesquisa
-        const searchTerm = searchInput.value.toLowerCase();
-        const cadastrosFiltrados = searchTerm 
-            ? cadastrosUnicos.filter(cad => 
-                (cad.nomeCompleto && cad.nomeCompleto.toLowerCase().includes(searchTerm)) ||
-                (cad.cpf && cad.cpf.includes(searchTerm)) ||
-                (cad.servicoPrestado && cad.servicoPrestado.toLowerCase().includes(searchTerm)))
-            : cadastrosUnicos;
-        
-        exibirCadastros(cadastrosFiltrados);
-        
-    } catch (error) {
-        console.error('Erro ao carregar cadastros:', error);
-        cadastrosList.innerHTML = '<div class="cadastro-item"><p>Erro ao carregar cadastros. Tente novamente.</p></div>';
-    }
-}
-
-async function carregarDadosDoGoogleSheets() {
-    try {
-        const response = await fetch(GOOGLE_SCRIPT_URL + '?action=getData');
-        const data = await response.json();
-        return data.result || [];
-    } catch (error) {
-        console.error('Erro ao carregar dados do Google Sheets:', error);
-        return [];
-    }
-}
-
-function eliminarDuplicatasPorCPF(cadastros) {
-    const cadastrosUnicos = [];
-    const cpfsVistos = new Set();
-    
-    for (const cadastro of cadastros.reverse()) { // Inverte para manter os mais recentes
-        if (cadastro.cpf && !cpfsVistos.has(cadastro.cpf)) {
-            cpfsVistos.add(cadastro.cpf);
-            cadastrosUnicos.push(cadastro);
+        function loadCadastros() {
+            const searchTerm = searchInput.value.toLowerCase();
+            
+            // Carregar dados do localStorage
+            const dadosSalvos = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (dadosSalvos) {
+                cadastros = JSON.parse(dadosSalvos);
+            }
+            
+            // Filtrar cadastros se houver termo de pesquisa
+            const cadastrosFiltrados = searchTerm 
+                ? cadastros.filter(cad => 
+                    (cad.nomeCompleto && cad.nomeCompleto.toLowerCase().includes(searchTerm)) ||
+                    (cad.cpf && cad.cpf.includes(searchTerm)) ||
+                    (cad.servicoPrestado && cad.servicoPrestado.toLowerCase().includes(searchTerm)))
+                : cadastros;
+            
+            if (cadastrosFiltrados.length === 0) {
+                cadastrosList.innerHTML = '<div class="cadastro-item"><p>Nenhum cadastro encontrado.</p></div>';
+                return;
+            }
+            
+            let html = '';
+            
+            cadastrosFiltrados.forEach((cadastro, index) => {
+                html += `
+                    <div class="cadastro-item">
+                        <h2>${index + 1}. ${cadastro.nomeCompleto || 'Nome não informado'}</h2>
+                        
+                        <div class="cadastro-section">
+                            <h3>Dados Pessoais</h3>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <strong>Data de Nascimento:</strong>
+                                    <span>${formatarData(cadastro.dataNascimento)}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Gênero:</strong>
+                                    <span>${cadastro.genero || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Estado Civil:</strong>
+                                    <span>${cadastro.estadoCivil || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Raça/Etnia:</strong>
+                                    <span>${cadastro.racaEtnia || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Nacionalidade:</strong>
+                                    <span>${cadastro.nacionalidade || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Naturalidade:</strong>
+                                    <span>${cadastro.naturalidade || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Nome da Mãe:</strong>
+                                    <span>${cadastro.nomeMae || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Nome do Pai:</strong>
+                                    <span>${cadastro.nomePai || 'Não informado'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="cadastro-section">
+                            <h3>Documentos</h3>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <strong>CPF:</strong>
+                                    <span>${cadastro.cpf || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>RG:</strong>
+                                    <span>${cadastro.rg || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Data Emissão RG:</strong>
+                                    <span>${formatarData(cadastro.dataEmissaoRG)}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Órgão Expedidor:</strong>
+                                    <span>${cadastro.orgaoExpedidorRG || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>CNH:</strong>
+                                    <span>${cadastro.cnh || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Título de Eleitor:</strong>
+                                    <span>${cadastro.tituloEleitor ? `${cadastro.tituloEleitor.numero || ''} ${cadastro.tituloEleitor.zona ? '(Zona ' + cadastro.tituloEleitor.zona + ')' : ''} ${cadastro.tituloEleitor.secao ? '(Seção ' + cadastro.tituloEleitor.secao + ')' : ''}` : 'Não informado'}</span>
+                                </div>
+                                ${cadastro.genero === 'Masculino' ? `
+                                <div class="info-item">
+                                    <strong>Certificado Reservista:</strong>
+                                    <span>${cadastro.reservista || 'Não informado'}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="cadastro-section">
+                            <h3>Endereço</h3>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <strong>Endereço:</strong>
+                                    <span>${cadastro.endereco || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Bairro:</strong>
+                                    <span>${cadastro.bairro || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Cidade/Estado:</strong>
+                                    <span>${cadastro.cidade || ''}${cadastro.estado ? '/' + cadastro.estado : ''}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>CEP:</strong>
+                                    <span>${cadastro.cep || 'Não informado'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="cadastro-section">
+                            <h3>Contatos</h3>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <strong>Telefone Celular:</strong>
+                                    <span>${cadastro.telefoneCelular || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Telefone Emergência:</strong>
+                                    <span>${cadastro.telefoneEmergencia || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Contato Emergência:</strong>
+                                    <span>${cadastro.nomeContatoEmergencia || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>E-mail Pessoal:</strong>
+                                    <span>${cadastro.emailPessoal || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>E-mail Empresarial:</strong>
+                                    <span>${cadastro.emailEmpresarial || 'Não informado'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="cadastro-section">
+                            <h3>Dados Profissionais</h3>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <strong>Serviço Prestado:</strong>
+                                    <span>${cadastro.servicoPrestado || 'A ser preenchido pelo gestor'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>CNPJ:</strong>
+                                    <span>${cadastro.cnpj || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Data Início Serviço:</strong>
+                                    <span>${cadastro.dataInicioServico ? formatarData(cadastro.dataInicioServico) : 'A ser preenchido pelo gestor'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Remuneração Mensal:</strong>
+                                    <span>${cadastro.valorRemuneracao ? 'R$ ' + parseFloat(cadastro.valorRemuneracao).toFixed(2).replace('.', ',') : 'A ser preenchido pelo gestor'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="cadastro-section">
+                            <h3>Dependentes</h3>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <strong>Possui Dependentes:</strong>
+                                    <span>${cadastro.possuiDependentes || 'Não'}</span>
+                                </div>
+                            </div>
+                `;
+                
+                if (cadastro.possuiDependentes === 'Sim' && cadastro.dependentes && cadastro.dependentes.length > 0) {
+                    cadastro.dependentes.forEach(dependente => {
+                        html += `
+                            <div class="info-grid" style="margin-top: 10px;">
+                                <div class="info-item">
+                                    <strong>Nome:</strong>
+                                    <span>${dependente.nome || 'Não informado'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>Data Nascimento:</strong>
+                                    <span>${formatarData(dependente.dataNascimento)}</span>
+                                </div>
+                                <div class="info-item">
+                                    <strong>CPF:</strong>
+                                    <span>${dependente.cpf || 'Não informado'}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                html += `</div></div>`;
+            });
+            
+            cadastrosList.innerHTML = html;
         }
-    }
-    
-    return cadastrosUnicos;
-}
-
-function exibirCadastros(cadastrosParaExibir) {
-    if (cadastrosParaExibir.length === 0) {
-        cadastrosList.innerHTML = '<div class="cadastro-item"><p>Nenhum cadastro encontrado.</p></div>';
-        return;
-    }
-    
-    let html = '';
-    cadastrosParaExibir.forEach((cadastro, index) => {
-        // Mantenha o mesmo código de exibição que você já tinha
-        html += `
-            <div class="cadastro-item">
-                <h2>${index + 1}. ${cadastro.nomeCompleto || 'Nome não informado'}</h2>
-                ...
-                [restante do seu código de exibição]
-                ...
-            </div>
-        `;
-    });
-    
-    cadastrosList.innerHTML = html;
-}
         
         function formatarData(dataString) {
             if (!dataString) return 'Não informado';
