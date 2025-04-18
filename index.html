@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Cadastro PJ v.1</title>
+    <title>Sistema de Cadastro PJ v.1.2</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -682,13 +682,10 @@
         viewCadastrosBtn.addEventListener('click', showLoginView);
         newCadastroBtn.addEventListener('click', showCadastroScreen);
         viewLogoutBtn.addEventListener('click', handleLogout);
-        searchBtn.addEventListener('click', () => {
-    loadCadastros();
-});
-
-searchInput.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') loadCadastros();
-});
+        searchBtn.addEventListener('click', loadCadastros);
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') loadCadastros();
+        });
         adicionarDependente.addEventListener('click', adicionarDependenteForm);
         possuiDependentes.addEventListener('change', toggleDependentesContainer);
         genero.addEventListener('change', toggleReservistaContainer);
@@ -932,6 +929,10 @@ searchInput.addEventListener('keypress', function(e) {
             const dadosSalvos = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (dadosSalvos) {
                 cadastros = JSON.parse(dadosSalvos);
+                console.log("Cadastros carregados:", cadastros); // Log para depuração
+            } else {
+                console.log("Nenhum dado encontrado no localStorage");
+                cadastros = [];
             }
             
             // Filtrar cadastros se houver termo de pesquisa
@@ -941,6 +942,8 @@ searchInput.addEventListener('keypress', function(e) {
                     (cad.cpf && cad.cpf.includes(searchTerm)) ||
                     (cad.servicoPrestado && cad.servicoPrestado.toLowerCase().includes(searchTerm)))
                 : cadastros;
+            
+            console.log("Cadastros filtrados:", cadastrosFiltrados); // Log para depuração
             
             if (cadastrosFiltrados.length === 0) {
                 cadastrosList.innerHTML = '<div class="cadastro-item"><p>Nenhum cadastro encontrado.</p></div>';
