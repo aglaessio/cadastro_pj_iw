@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro de Novos PJ</title>
+    <title>Cadastro de Novos PJ v1</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -876,68 +876,96 @@
         }
         
         function fetchDataFromGoogleSheets() {
-            loadingIndicator.style.display = 'block';
-            cadastrosList.innerHTML = '';
-            
-            fetch(`${GOOGLE_SCRIPT_URL}?action=getData`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        cadastros = data;
-                        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cadastros));
-                        loadCadastros();
-                    } else {
-                        const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-                        if (localData) {
-                            cadastros = JSON.parse(localData);
-                            loadCadastros();
-                        } else {
-                            cadastrosList.innerHTML = '<div class="cadastro-item"><p>Nenhum cadastro encontrado.</p></div>';
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro ao buscar dados:', error);
-                    const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-                    if (localData) {
-                        cadastros = JSON.parse(localData);
-                        loadCadastros();
-                    } else {
-                        cadastrosList.innerHTML = '<div class="cadastro-item"><p>Não foi possível carregar os cadastros.</p></div>';
-                    }
-                })
-                .finally(() => {
-                    loadingIndicator.style.display = 'none';
-                });
-        }
-        
-        function loadCadastros() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const cadastrosFiltrados = searchTerm 
-                ? cadastros.filter(cad => 
-                    (cad.nomeCompleto && cad.nomeCompleto.toLowerCase().includes(searchTerm)) ||
-                    (cad.cpf && cad.cpf.includes(searchTerm)) ||
-                    (cad.servicoPrestado && cad.servicoPrestado.toLowerCase().includes(searchTerm)))
-                : cadastros;
-            
-            if (cadastrosFiltrados.length === 0) {
-                cadastrosList.innerHTML = '<div class="cadastro-item"><p>Nenhum cadastro encontrado.</p></div>';
-                return;
+    loadingIndicator.style.display = 'block';
+    cadastrosList.innerHTML = '';
+    
+    fetch(`${GOOGLE_SCRIPT_URL}?action=getData`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro na resposta do servidor');
             }
-            
-            let html = '';
-            cadastrosFiltrados.forEach((cadastro, index) => {
-                html += `
+            return response.json();
+        })
+        .then(data => {
+            console.log('Dados recebidos do Google Sheets:', data); // Para depuração
+            if (data && data.length > 0) {
+                cadastros = data;
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cadastros));
+                loadCadastros();
+            } else {
+                // Fallback para dados locais se a planilha estiver vazia
+                const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (localData) {
+                    cadastros = JSON.parse(localData);
+                    loadCadastros();
+                } else {
+                    cadastrosList.innerHTML = '<div class="cadastro-item"><p>Nenhum cadastro encontrado na planilha.</p></div>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar dados:', error);
+            // Fallback para dados locais em caso de erro
+            const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (localData) {
+                cadastros = JSON.parse(localData);
+                loadCadastros();
+            } else {
+                cadastrosList.innerHTML = `
                     <div class="cadastro-item">
-                        <h2>${index + 1}. ${cadastro.nomeCompleto || 'Nome não informado'}</h2>
-                        <!-- [Restante da visualização dos dados] -->
-                        <!-- ... -->
+                        <p>Não foi possível carregar os cadastros.</p>
+                        <p>Erro: ${error.message}</p>
                     </div>
                 `;
-            });
-            
-            cadastrosList.innerHTML = html;
-        }
+            }
+        })
+        .finally(() => {
+            loadingIndicator.style.display = 'none';
+        });
+}
+        
+function loadCadastros() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const cadastrosFiltrados = searchTerm 
+        ? cadastros.filter(cad => 
+            (cad['Nome Completo'] && cad['Nome Completo'].toLowerCase().includes(searchTerm)) ||
+            (cad.CPF && cad.CPF.includes(searchTerm)) ||
+            (cad['Serviço Prestado'] && cad['Serviço Prestado'].toLowerCase().includes(searchTerm)))
+        : cadastros;
+    
+    if (cadastrosFiltrados.length === 0) {
+        cadastrosList.innerHTML = '<div class="cadastro-item"><p>Nenhum cadastro encontrado.</p></div>';
+        return;
+    }
+    
+    let html = '';
+    cadastrosFiltrados.forEach((cadastro, index) => {
+        html += `
+            <div class="cadastro-item">
+                <h2>${index + 1}. ${cadastro['Nome Completo'] || 'Nome não informado'}</h2>
+                
+                <div class="cadastro-section">
+                    <h3>Dados Pessoais</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>Data de Nascimento:</strong>
+                            <span>${formatarData(cadastro['Data Nascimento'])}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Gênero:</strong>
+                            <span>${cadastro.Gênero || 'Não informado'}</span>
+                        </div>
+                        <!-- Adicione os outros campos conforme necessário -->
+                    </div>
+                </div>
+                
+                <!-- Adicione mais seções conforme seu modelo de dados -->
+            </div>
+        `;
+    });
+    
+    cadastrosList.innerHTML = html;
+}
         
         function toggleDependentesContainer() {
             dependentesContainer.style.display = possuiDependentes.value === 'Sim' ? 'block' : 'none';
